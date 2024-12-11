@@ -1,5 +1,4 @@
 import tkinter as tk
-import tkinter.font as tkFont
 
 class Calculator:
     """
@@ -11,19 +10,6 @@ class Calculator:
         Initializes a Calculator object.
         """
         # ################# #
-        #  Style Variables  #
-        # ################# #
-        # --light
-
-        # --dark
-        self.window_bgcolor_dark = "#000"
-        self.button_txtcolor_dark = "#FFF"
-        self.button_func_bgcolor_dark = "#666"
-        self.button_num_bgcolor_dark = "#222"
-        self.button_op_bgcolor_dark = "#f8af47"
-
-
-        # ################# #
         #   Create Window   #
         # ################# #
         self.window = tk.Tk()
@@ -34,7 +20,7 @@ class Calculator:
         # #################### #
         #  Create Output Area  #
         # #################### #
-        self.output = tk.Label(self.window, bg=self.window_bgcolor_dark)
+        self.output = tk.Label(self.window)
         self.output.grid(row=0, column=0, columnspan=4, sticky="nsew")
 
 
@@ -49,30 +35,30 @@ class Calculator:
         }
 
         # -buttons with changing text value
-        self.clear_button = self.create_button("AC", self.button_func_bgcolor_dark, self.button_txtcolor_dark)
-        self.displaymode_button = self.create_button("\u263C", self.button_num_bgcolor_dark, self.button_txtcolor_dark)
+        self.clear_button = self.create_button("AC")
+        self.displaymode_button = self.create_button("\u263C", self.switch_display)
         
         # -functional buttons
         self.buttons["functional"] = [
             self.clear_button,
-            self.create_button("+/-", self.button_func_bgcolor_dark, self.button_txtcolor_dark),
-            self.create_button("%", self.button_func_bgcolor_dark, self.button_txtcolor_dark),
+            self.create_button("+/-"),
+            self.create_button("%"),
         ]
     
         # -numerical buttons
         for i in range(10):
-            self.buttons["numerical"].append(self.create_button(str(i), self.button_num_bgcolor_dark, self.button_txtcolor_dark))
+            self.buttons["numerical"].append(self.create_button(str(i)))
         # --non-numerical buttons that follow same styling as numerical buttons, ordered for easy placing in grid
         self.buttons["numerical"].insert(0, self.displaymode_button)
-        self.buttons["numerical"].insert(2, self.create_button(".", self.button_num_bgcolor_dark, self.button_txtcolor_dark))
+        self.buttons["numerical"].insert(2, self.create_button("."))
 
         # -operational buttons
         self.buttons["operational"] = [
-            self.create_button("\u2797", self.button_op_bgcolor_dark, self.button_txtcolor_dark),   # division
-            self.create_button("\u2716", self.button_op_bgcolor_dark, self.button_txtcolor_dark),   # multiplication
-            self.create_button("\u2796", self.button_op_bgcolor_dark, self.button_txtcolor_dark),   # minus
-            self.create_button("\u2795", self.button_op_bgcolor_dark, self.button_txtcolor_dark),   # plus
-            self.create_button("\u3013", self.button_op_bgcolor_dark, self.button_txtcolor_dark)    # equals
+            self.create_button("\u2797"),   # division
+            self.create_button("\u2716"),   # multiplication
+            self.create_button("\u2796"),   # minus
+            self.create_button("\u2795"),   # plus
+            self.create_button("\u3013")    # equals
         ]
 
 
@@ -99,24 +85,28 @@ class Calculator:
         # ########################## #
         #  Row/Column Configuration  #
         # ########################## #
-        # configure columns to fill width of window
+        # -configure columns to fill width of window
         for i in range(4):
             self.window.columnconfigure(i, weight=1)
 
-        # configure rows to fill height of window
+        # -configure rows to fill height of window
         self.window.rowconfigure(0, weight=6)
         for i in range(1, 6):
             self.window.rowconfigure(i, weight=1)
 
+        # ############# #
+        #  Set Styling  #
+        # ############# #
+        self.mode = "light"
+        self.switch_display()   # calculator will initiate with dark stylings
 
-    def create_button(self, text, bg_color, text_color, function=None):
+
+    def create_button(self, text, function=None):
         """
         Creates Tkinter button widget.
 
         Parameters:
             text (str): Text value displayed on button.
-            bg_color (str): Hex value for background color of button.
-            text_color (str): Hex value for text color.
             function (function): Function called when button is clicked.
         
         Returns:
@@ -124,12 +114,47 @@ class Calculator:
         """
         return tk.Button(self.window,
                          text=text,
-                         bg=bg_color,
-                         fg=text_color,
                          font=("Monospace", 16),
-                         padx=0,
-                         pady=0
+                         command=function
                         )
+    
+    def switch_display(self):
+        """
+        Switches calculator to either light or dark mode based on current styling.
+        """
+        if self.mode == "dark":
+            # light mode settings
+            bg_color = "#EEE"
+            txt_color = "#000"
+            func_btn_color = "#999"
+            num_btn_color = "#CCC"
+            op_btn_color = "#f9b658"
+            self.displaymode_button.config(text = "\U0001F312") # moon symbol
+            self.mode = "light"
+        else:
+            # dark mode settings
+            bg_color = "#000"
+            txt_color = "#FFF"
+            func_btn_color = "#666"
+            num_btn_color = "#222"
+            op_btn_color = "#f8af47"
+            self.displaymode_button.config(text = "\u263C") # sun symbol
+            self.mode = "dark"
+
+        # change widget styling
+        self.output.config(bg = bg_color, fg = txt_color)
+        for btn_type in self.buttons:
+            for btn in self.buttons[btn_type]:
+                btn.config(fg = txt_color)
+                if btn_type == "functional":
+                    btn.config(bg = func_btn_color)
+                elif btn_type == "numerical":
+                    btn.config(bg = num_btn_color)
+                else:
+                    btn.config(bg = op_btn_color)
+                
+            
+
 
     def run(self):
         """
