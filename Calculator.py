@@ -70,7 +70,7 @@ class Calculator:
             self.buttons["numerical"].append(self.create_button(str(i), lambda num=str(i): self.num_input(num)))
         # --non-numerical buttons that follow same styling as numerical buttons, ordered for easy placing in grid
         self.buttons["numerical"].insert(0, self.displaymode_button)
-        self.buttons["numerical"].insert(2, self.create_button("."))
+        self.buttons["numerical"].insert(2, self.create_button(".", self.decimal))
 
         # -operational buttons
         self.buttons["operational"] = [
@@ -180,17 +180,33 @@ class Calculator:
         Parameters:
             value (str): Value corresponding to the number on the button clicked.
         """
+        # start new operation if number hit after equal
         if self.state == "eq":
             self.clearAll()
 
+        # beginning fresh operation
         if self.state == "none":
-            self.output.config(text=value)
+            # if 0 negated, add entered value after '-' sign
+            if self.output["text"][0] == "-":
+                self.output.config(text="-" + value)
+            # decimal value < 1 (ie 0.5)
+            elif self.output["text"][-1] == ".":
+                self.output["text"] += value
+            # if not negated or decimal, just replace the 0
+            else:
+                self.output.config(text=value)
 
-        elif self.state == "num" and len(self.output["text"]) < 11: # max output length of 12
+        # if number already entered, append following entered values to end
+        elif (self.state == "num") and (self.output["text"] != "0") and (len(self.output["text"]) < 11): # max output length of 11
             self.output["text"] += value
 
+        # if operator button pressed, start entry of new value
         elif self.state == "op":
-            self.output.config(text=value)
+            # new value is a decimal < 1
+            if self.output["text"][-1] == "." and float(self.val1) != 0: # float(self.val1) != 0 ensures new value is started if '0.' is entered before operator button is clicked
+                self.output["text"] += value
+            else:   
+                self.output.config(text=value)
 
         self.set_state("num")
 
@@ -204,26 +220,30 @@ class Calculator:
             operator (function): The operation function to be performed on the entered values
                                     based on the operator button that is clicked.
         """
-        if self.state == "num":
+        # user clicked an operator button after entering a number (or using the default 0 as first value)
+        if self.state == "num" or self.state=="none":
             if not self.val1:
                 self.val1 = self.output["text"]
             else:   # operate on previosly entered values
                 self.val2 = self.output["text"]
                 self.val1 = self.operator(self.val1, self.val2)
-                self.output.config(text=self.val1)  # set output value
+                self.set_output(self.val1)
             # store operator
             if self.operator:
                 self.prev_operator = self.operator
             self.operator = operator
 
+        # operator button was pressed immediatly after another operator button,
+        # stored operator changes to last pressed operator button
         elif self.state == "op":
             self.operator = operator
 
+        # user wants to operate on the result of a previous operation
         elif self.state == "eq":
-            # case: equals button pressed immediatly after entering first value
+            # case: equals button pressed immediatly after entering first value - ignore fact equal button was clicked
             if not self.val1:
                 self.val1 = self.output["text"]
-            # case: build on to previously equated operation
+            # case: user wants to build on to previously equated operation - store operator and wait for next value to be entered
             if self.operator:
                 self.prev_operator = self.operator
             self.operator = operator
@@ -232,22 +252,27 @@ class Calculator:
 
     def equals(self):
         """
+        Performs an operation using stored values and the stored operator.
         """
+        # if previously stored value and operator, perform operation with stored value and current output value
         if self.state == "num":
             if self.val1:
                 self.val2 = self.output["text"]
                 self.val1 = self.operator(self.val1, self.val2)
-                self.output.config(text=self.val1)
+                self.set_output(self.val1)
         
+        # if equals pressed immediatly after an operator button, 
+        # ignore the operator button and repeat last operation
         elif self.state == "op":
-            if self.val1 and self.val2:
+            if self.val1 and self.val2: # ensures a previous operation exists
                 self.operator = self.prev_operator
                 self.val1 = self.operator(self.val1, self.val2)
-                self.output.config(text=self.val1)
+                self.set_output(self.val1)
         
+        # repeat previous operation using the result of that operation as val1
         elif self.state == "eq" and self.val1:
             self.val1 = self.operator(self.val1, self.val2)
-            self.output.config(text=self.val1)
+            self.set_output(self.val1)
 
         self.set_state("eq")
 
@@ -258,11 +283,31 @@ class Calculator:
         Parameters:
             value (str): Raw output value.
         """
-        # handle values with length > 12 (scientific notation?)
-        # handle un-needed decimals (trailing zeros i.e 1.00)
-        # replace all self.output.configs to this function
-        pass
-  
+        cleaned_value = value
+
+        # value is a whole number
+        if float(value) % 1 == 0:
+            # remove trailing 0's
+            cleaned_value = str(int(float(value)))  
+            # value is larger than 11 digits -> convert to scientifc notation
+            if len(cleaned_value) > 11:
+                cleaned_value = "{:.2e}".format(float(cleaned_value))
+
+        # value is decimal value
+        else:
+            # value has leading 0's creating a value large than 11 digits -> convert to scientific notation
+            if cleaned_value[:11] == "0.000000000":
+                cleaned_value = "{:.2e}".format(cleaned_value)
+            # value is larger than 11 digits -> round decimals place to keep value at most 11 digits
+            elif len(cleaned_value) > 11:
+                cleaned_value = cleaned_value[:11]
+            # remove trailing 0's
+            while cleaned_value[-1] == "0":
+                cleaned_value = cleaned_value[:len(cleaned_value) - 1]
+        
+        # set output to cleaned value
+        self.output.config(text=cleaned_value)
+          
     def clearAll(self):
         """
         Resets the output window to 0 and resets all logic variables.
@@ -285,6 +330,10 @@ class Calculator:
         Rerturns:
             (str): The quotient of the dividend and the divisor.
         """
+        # divide by 0 error
+        if float(divisor) == 0:
+            self.clearAll()
+            return "Div 0 Error"
         return str(float(dividend) / float(divisor))
 
     def multiply(self, val1, val2):
@@ -328,15 +377,44 @@ class Calculator:
 
     def change_sign(self):
         """
+        Changes current output value to negative if positive, or positive if negative.
         """
-        # ensure logic variables are updated if needed, not just visual output value
-        pass
+        # get change in sign value
+        if self.output["text"][0] == "-":
+            changed_value = self.output["text"][1:]
+        else:
+            changed_value = "-" + self.output["text"]
+        # update val1 if current output corresponds to the value stored in val1
+        if (self.state == "op" or  self.state =="eq") and (float(self.output["text"]) == float(self.val1)):
+            self.val1 = changed_value
+        # update the output value
+        self.output.config(text=changed_value)
 
     def percent(self):
         """
+        Converts value in output window to a decimal percentage.
         """
-        # ensure logic variables are updated if needed, not just visual output value
-        pass
+        percentage = str(float(self.output["text"]) / 100)
+        # update val1 if current output corresponds to the value stored in val1
+        if (self.state == "op" or  self.state =="eq") and (float(self.output["text"]) == float(self.val1)):
+            self.val1 = percentage
+        # update the output value
+        self.output.config(text=percentage)
+
+    def decimal(self):
+        """
+        Adds decimal point to current output window value.
+        """
+        # start new value if clicked after an operator
+        if self.state == "op":
+            self.output.config(text="0")
+        # start fresh operation if pressed after equals 
+        elif self.state =="eq":
+            self.clearAll()
+            self.output.config(text="0")
+        # update the output value
+        if self.output["text"].find(".") == -1 and len(self.output["text"]) < 11:
+            self.output["text"] += "."
 
     def set_state(self, state):
         """
